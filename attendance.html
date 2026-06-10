@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>出欠管理</title>
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --card:#ffffff;
+    --ink:#1c2330;
+    --sub:#6b7480;
+    --line:#e3e6eb;
+    --present:#1e7f4f;
+    --present-bg:#e4f3ea;
+    --absent:#c2403a;
+    --absent-bg:#fae8e7;
+    --late:#b07a14;
+    --late-bg:#faf0da;
+    --early:#8a5fb0;
+    --early-bg:#f0e8f8;
+    --official:#2a6fb0;
+    --official-bg:#e4eef8;
+    --none:#9aa2ad;
+    --none-bg:#eef0f3;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:var(--bg);color:var(--ink);
+    padding-bottom:90px;
+    -webkit-user-select:none;user-select:none;
+  }
+  header{
+    position:sticky;top:0;z-index:10;
+    background:var(--card);border-bottom:1px solid var(--line);
+    padding:10px 14px;
+  }
+  .title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  h1{font-size:17px;font-weight:700;}
+  input[type="date"]{
+    font-size:15px;padding:6px 8px;border:1px solid var(--line);
+    border-radius:8px;background:var(--bg);color:var(--ink);
+    font-family:inherit;
+  }
+  .summary{
+    display:flex;gap:6px;margin-top:10px;overflow-x:auto;
+  }
+  .chip{
+    flex:0 0 auto;border-radius:8px;padding:5px 10px;
+    font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;
+  }
+  .chip b{font-size:15px;}
+  .chip.s1{background:var(--present-bg);color:var(--present);}
+  .chip.s2{background:var(--absent-bg);color:var(--absent);}
+  .chip.s3{background:var(--late-bg);color:var(--late);}
+  .chip.s4{background:var(--early-bg);color:var(--early);}
+  .chip.s5{background:var(--official-bg);color:var(--official);}
+  .chip.s0{background:var(--none-bg);color:var(--none);}
+  main{padding:10px 12px;}
+  .student{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--line);
+    border-left:5px solid var(--none);
+    border-radius:10px;min-height:58px;padding:8px 14px;
+    margin-bottom:8px;cursor:pointer;
+    transition:transform .06s;
+  }
+  .student:active{transform:scale(.985);}
+  .student .num{font-size:12px;color:var(--sub);min-width:2.2em;}
+  .student .name{flex:1;font-size:16px;font-weight:600;margin-left:4px;}
+  .student .status{
+    font-size:14px;font-weight:700;border-radius:8px;padding:6px 12px;min-width:4.5em;text-align:center;
+  }
+  .student[data-s="0"]{border-left-color:var(--none);}
+  .student[data-s="0"] .status{background:var(--none-bg);color:var(--none);}
+  .student[data-s="1"]{border-left-color:var(--present);}
+  .student[data-s="1"] .status{background:var(--present-bg);color:var(--present);}
+  .student[data-s="2"]{border-left-color:var(--absent);background:#fffafa;}
+  .student[data-s="2"] .status{background:var(--absent-bg);color:var(--absent);}
+  .student[data-s="3"]{border-left-color:var(--late);}
+  .student[data-s="3"] .status{background:var(--late-bg);color:var(--late);}
+  .student[data-s="4"]{border-left-color:var(--early);}
+  .student[data-s="4"] .status{background:var(--early-bg);color:var(--early);}
+  .student[data-s="5"]{border-left-color:var(--official);}
+  .student[data-s="5"] .status{background:var(--official-bg);color:var(--official);}
+  .empty{
+    text-align:center;color:var(--sub);font-size:14px;padding:50px 20px;line-height:1.8;
+  }
+  footer{
+    position:fixed;bottom:0;left:0;right:0;z-index:10;
+    background:var(--card);border-top:1px solid var(--line);
+    display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  footer button{
+    flex:1;font-size:14px;font-weight:600;padding:12px 4px;
+    border:1px solid var(--line);border-radius:10px;
+    background:var(--bg);color:var(--ink);font-family:inherit;
+  }
+  footer button:active{background:var(--line);}
+  footer button.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  /* 名簿編集ダイアログ */
+  .overlay{
+    display:none;position:fixed;inset:0;z-index:20;
+    background:rgba(0,0,0,.45);align-items:flex-end;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--card);width:100%;border-radius:16px 16px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    max-height:85vh;display:flex;flex-direction:column;gap:10px;
+  }
+  .sheet h2{font-size:16px;}
+  .sheet p{font-size:12px;color:var(--sub);line-height:1.6;}
+  .sheet textarea{
+    width:100%;height:38vh;font-size:15px;line-height:1.7;
+    border:1px solid var(--line);border-radius:10px;padding:10px;
+    font-family:inherit;resize:none;
+    -webkit-user-select:text;user-select:text;
+  }
+  .sheet .btns{display:flex;gap:8px;}
+  .sheet button{
+    flex:1;font-size:15px;font-weight:600;padding:13px 4px;
+    border:1px solid var(--line);border-radius:10px;
+    background:var(--bg);color:var(--ink);font-family:inherit;
+  }
+  .sheet button.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .toast{
+    position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
+    background:var(--ink);color:#fff;font-size:13px;
+    padding:9px 18px;border-radius:20px;opacity:0;pointer-events:none;
+    transition:opacity .25s;z-index:30;white-space:nowrap;
+  }
+  .toast.show{opacity:.95;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>出欠管理</h1>
+    <input type="date" id="datePicker">
+  </div>
+  <div class="summary" id="summary"></div>
+</header>
+
+<main id="list"></main>
+
+<footer>
+  <button id="btnClear">全クリア</button>
+  <button id="btnRoster">名簿編集</button>
+  <button id="btnCsv" class="primary">CSV出力</button>
+</footer>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h2>名簿の編集</h2>
+    <p>1行に1名の氏名を入力する（出席番号順）．保存済みの出欠データは氏名をキーとして保持される．</p>
+    <textarea id="rosterText" placeholder="例：&#10;青山 太郎&#10;石田 花子&#10;上野 次郎"></textarea>
+    <div class="btns">
+      <button id="btnCancel">キャンセル</button>
+      <button id="btnSave" class="primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STATUS = [
+    {label:"未入力", csv:""},
+    {label:"出席",   csv:"出席"},
+    {label:"欠席",   csv:"欠席"},
+    {label:"遅刻",   csv:"遅刻"},
+    {label:"早退",   csv:"早退"},
+    {label:"公欠",   csv:"公欠"}
+  ];
+  var KEY_ROSTER = "attendance_roster_v1";
+  var KEY_DATA   = "attendance_data_v1";
+
+  // ---- ストレージ（localStorage不可の環境ではメモリで代替） ----
+  var mem = {};
+  function lsGet(k){
+    try{ return localStorage.getItem(k); }catch(e){ return mem[k] || null; }
+  }
+  function lsSet(k,v){
+    try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; }
+  }
+
+  var roster = [];          // 氏名の配列
+  var data = {};            // { "YYYY-MM-DD": { 氏名: 状態番号 } }
+  var currentDate = "";
+
+  function load(){
+    try{ roster = JSON.parse(lsGet(KEY_ROSTER)) || []; }catch(e){ roster = []; }
+    try{ data   = JSON.parse(lsGet(KEY_DATA))   || {}; }catch(e){ data = {}; }
+  }
+  function saveRoster(){ lsSet(KEY_ROSTER, JSON.stringify(roster)); }
+  function saveData(){ lsSet(KEY_DATA, JSON.stringify(data)); }
+
+  function todayStr(){
+    var d = new Date();
+    var m = ("0"+(d.getMonth()+1)).slice(-2);
+    var dd = ("0"+d.getDate()).slice(-2);
+    return d.getFullYear()+"-"+m+"-"+dd;
+  }
+
+  function getDay(){
+    if(!data[currentDate]) data[currentDate] = {};
+    return data[currentDate];
+  }
+
+  // ---- 描画 ----
+  var listEl = document.getElementById("list");
+  var summaryEl = document.getElementById("summary");
+
+  function render(){
+    var day = getDay();
+    listEl.innerHTML = "";
+    if(roster.length === 0){
+      listEl.innerHTML = '<div class="empty">名簿が未登録である．<br>下の「名簿編集」から学生名を登録すること．</div>';
+      summaryEl.innerHTML = "";
+      return;
+    }
+    var counts = [0,0,0,0,0,0];
+    roster.forEach(function(name, i){
+      var s = day[name] || 0;
+      counts[s]++;
+      var row = document.createElement("div");
+      row.className = "student";
+      row.setAttribute("data-s", s);
+      row.innerHTML =
+        '<span class="num">'+(i+1)+'</span>' +
+        '<span class="name"></span>' +
+        '<span class="status">'+STATUS[s].label+'</span>';
+      row.querySelector(".name").textContent = name;
+      row.addEventListener("click", function(){
+        var cur = day[name] || 0;
+        day[name] = (cur + 1) % STATUS.length;
+        saveData();
+        render();
+      });
+      listEl.appendChild(row);
+    });
+    // 集計チップ（出席→欠席→遅刻→早退→公欠→未入力の順）
+    var order = [1,2,3,4,5,0];
+    summaryEl.innerHTML = order.map(function(s){
+      return '<span class="chip s'+s+'">'+STATUS[s].label+' <b>'+counts[s]+'</b></span>';
+    }).join("");
+  }
+
+  // ---- 日付 ----
+  var datePicker = document.getElementById("datePicker");
+  datePicker.value = todayStr();
+  currentDate = datePicker.value;
+  datePicker.addEventListener("change", function(){
+    currentDate = datePicker.value || todayStr();
+    render();
+  });
+
+  // ---- 全クリア ----
+  document.getElementById("btnClear").addEventListener("click", function(){
+    if(roster.length === 0) return;
+    if(!confirm(currentDate + " の出欠をすべて未入力に戻す．よいか？")) return;
+    data[currentDate] = {};
+    saveData();
+    render();
+    showToast("出欠をクリアした");
+  });
+
+  // ---- 名簿編集 ----
+  var overlay = document.getElementById("overlay");
+  var rosterText = document.getElementById("rosterText");
+  document.getElementById("btnRoster").addEventListener("click", function(){
+    rosterText.value = roster.join("\n");
+    overlay.classList.add("show");
+  });
+  document.getElementById("btnCancel").addEventListener("click", function(){
+    overlay.classList.remove("show");
+  });
+  document.getElementById("btnSave").addEventListener("click", function(){
+    var names = rosterText.value.split("\n")
+      .map(function(s){ return s.trim(); })
+      .filter(function(s){ return s.length > 0; });
+    roster = names;
+    saveRoster();
+    overlay.classList.remove("show");
+    render();
+    showToast("名簿を保存した（"+roster.length+"名）");
+  });
+
+  // ---- CSV出力 ----
+  document.getElementById("btnCsv").addEventListener("click", function(){
+    if(roster.length === 0){ showToast("名簿が未登録である"); return; }
+    var day = getDay();
+    var lines = ["番号,氏名,出欠,日付"];
+    roster.forEach(function(name, i){
+      var s = day[name] || 0;
+      lines.push((i+1)+',"'+name.replace(/"/g,'""')+'",'+STATUS[s].csv+','+currentDate);
+    });
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "attendance_" + currentDate + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    showToast("CSVを出力した");
+  });
+
+  // ---- トースト ----
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 1800);
+  }
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
